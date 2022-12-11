@@ -11,7 +11,36 @@ services:
           memory: 4G
         reservations:
           memory: 2G
-
+  pg:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./test_service/docker/initdb:/docker-entrypoint-initdb.d
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  test_service:
+    environment:
+      BADLISTED_WORDS_URL: 'http://badlisted-words:8018'
+      SPACY_NOUNPHRASES_URL: 'http://spacy-nounphrases:8006'
+      PG_URL: 'postgresql+asyncpg://postgres:postgres@pg/test'
+    build:
+      context: ./test_service
+      dockerfile: ./docker/Dockerfile
+    depends_on:
+      badlisted-words:
+          condition: service_started
+      spacy-nounphrases:
+          condition: service_started
+      pg:
+          condition: service_healthy
+    ports:
+      - 8000:8000
   mongo:
     command: mongod
     image: mongo:4.0.0
